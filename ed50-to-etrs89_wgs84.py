@@ -61,6 +61,10 @@ def do_post():
     return json.dumps(output)
    
 
+if __name__ == '__main__':
+    app.run(debug=True,host='0.0.0.0')
+
+
 # # Do the transformation:
 # ED50_x = 433829.9531810064
 # ED50_y = 4811755.325688820
