@@ -8,13 +8,16 @@ app = Flask(__name__)
 
 # Define the projections using EPSG codes, check spatialreference.org for help
 # Add the shift grid with nadgrids option
-ZONES = {
+ED50_ZONES = {
     "29N": pyproj.Proj(init="EPSG:23029", nadgrids="./ntv2_grids/PENR2009.gsb"),
     "30N": pyproj.Proj(init="EPSG:23030", nadgrids="./ntv2_grids/PENR2009.gsb"),
     "31N": pyproj.Proj(init="EPSG:23031", nadgrids="./ntv2_grids/PENR2009.gsb,./ntv2_grids/BALR2009.gsb ")
 }
 
-WGS84 = pyproj.Proj(init="epsg:4326")
+DEST = {
+    "WGS84": pyproj.Proj(init="epsg:4326"),
+    "ETRS89": pyproj.Proj(init="epsg:4258")
+}
 
 class InvalidUsage(Exception):
     status_code = 400
@@ -37,36 +40,42 @@ def handle_invalid_usage(error):
     response.status_code = error.status_code
     return response
 
-@app.route("/<zone>", methods=['GET', 'POST'])
-def transform(zone):
-    if zone not in ZONES:
+@app.route("/<zone>/<dest>", methods=['GET', 'POST'])
+def transform(zone, dest):
+    zone = zone.upper()
+    if zone not in ED50_ZONES:
         raise InvalidUsage('Not valid zone for Spain.', status_code=404)
 
-    if request.method == 'GET':
-        return do_get(ZONES[zone])
-    else:
-        return do_post(ZONES[zone])
+    dest = dest.upper()
+    if dest not in DEST:
+        raise InvalidUsage('Not valid destination system.', status_code=404)
 
-def do_get(ED50_zone):
+    if request.method == 'GET':
+        return do_get(ED50_ZONES[zone], DEST[dest])
+    else:
+        return do_post(ED50_ZONES[zone], DEST[dest])
+
+def do_get(ED50_zone, dest):
     ED50_x = request.args.get('x')
     ED50_y = request.args.get('y')
     if ED50_x is None or ED50_x == '' or ED50_y is None or ED50_y == '':
         raise InvalidUsage('Must set both x and y query params.', status_code=400)
     else:
-        WGS84_long, WGS84_lat = pyproj.transform(ED50_zone, WGS84, ED50_x, ED50_y)
-        return jsonify(WGS84_long, WGS84_lat)
+        lon, lat = pyproj.transform(ED50_zone, dest, ED50_x, ED50_y)
+        return jsonify(lon, lat)
 
-def do_post(ED50_zone):
+def do_post(ED50_zone, dest):
     if request.content_type != 'application/json':
         raise InvalidUsage('Only accepts application/json.', status_code=415)
+
     try:
         json_data = request.get_json()
         output = []
         for coordinates in json_data:
             ED50_x = coordinates[0]
             ED50_y = coordinates[1]
-            WGS84_long, WGS84_lat = pyproj.transform(ED50_zone, WGS84, ED50_x, ED50_y)
-            output.append([WGS84_long, WGS84_lat])
+            lon, lat = pyproj.transform(ED50_zone, dest, ED50_x, ED50_y)
+            output.append([lon, lat])
     except:
         raise InvalidUsage("Invalid JSON format. Include array of coordinates (i.e. [[x1,y1],...,[xn,yn]].", status_code=400)
 
