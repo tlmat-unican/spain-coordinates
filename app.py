@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, request, jsonify
 import json
 import pyproj
@@ -39,7 +41,7 @@ def handle_invalid_usage(error):
 def transform(zone):
     if zone not in ZONES:
         raise InvalidUsage('Not valid zone for Spain.', status_code=404)
-    
+
     if request.method == 'GET':
         return do_get(ZONES[zone])
     else:
@@ -71,8 +73,9 @@ def do_post(ED50_zone):
     return json.dumps(output)
 
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0')
-
+    # Bind to PORT if defined, otherwise default to 5000.
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True,host='0.0.0.0', port=port)
 
 # Example transformation:
 # ED50 UTM zone 30 coordinates = (433829.9531810064, 4811755.325688820)
@@ -80,4 +83,4 @@ if __name__ == '__main__':
 
 
 
- 
+
