@@ -1,11 +1,14 @@
-FROM python:3-alpine
-MAINTAINER Jorge Lanza <jlanza@tlmat.unican.es>
+FROM python:3.6-alpine
+LABEL authors="Jorge Lanza <jlanza@tlmat.unican.es>, Pablo Sotres <psotres@tlmat.unican.es>"
 
-RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
 
 COPY requirements.txt /usr/src/app/
-RUN pip install --no-cache-dir -r requirements.txt
+RUN set -x \
+  && apk add --no-cache --virtual .build-deps build-base \
+  && pip install --no-cache-dir -r requirements.txt \
+  && apk del .build-deps \
+  && rm -Rf /root/* /root/.cache
 
 COPY . /usr/src/app
 
