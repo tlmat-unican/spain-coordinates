@@ -60,9 +60,11 @@ curl -X POST \
 ### Standalone
 Install python and the required libraries
 
+```
 $ sudo apt install python3
 $ pip install --no-cache-dir -r requirements.txt
 $ python3 ./app.py
+```
 
 By default the webservice is run in port 5000, but this can be modified by
 setting the environment variable `PORT`.
@@ -74,8 +76,6 @@ Run the following command to build and run the docker image
 $ sudo docker build -t ed50 .
 $ sudo docker run -d -p 5000:5000 ed50
 ```
-
-## Authors
 
 ## Authors
 This project has been developed by:
