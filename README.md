@@ -55,6 +55,13 @@ curl -X POST \
   -d '[[433829.9531810064, 4811755.325688820], [433828.9531810064, 4811755.325688820]]'
 ```
 
+The webservice is also accepting data in [GeoJSON format](http://geojson.org/).
+Format validation is performed using the [GeoJSON schema][https://github.com/geojson/schema]
+
+We have noticed that there are some bugs with Python `jsonschema` package, as
+for some of the type values it is not properly validating (i.e.
+FeatureCollection).
+
 ## Run
 
 ### Standalone
