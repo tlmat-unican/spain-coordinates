@@ -6,12 +6,15 @@ WORKDIR /usr/src/app
 COPY requirements.txt /usr/src/app/
 RUN set -x \
   && apk add --no-cache --virtual .build-deps build-base \
+  && pip install --no-cache-dir gunicorn \
   && pip install --no-cache-dir -r requirements.txt \
   && apk del .build-deps \
   && rm -Rf /root/* /root/.cache
 
 COPY . /usr/src/app
 
-# Expose the Flask port
 EXPOSE 5000
-CMD [ "python", "./app.py" ]
+# Start with Flask
+#CMD [ "python", "./app.py" ]
+# Start with gunicorn
+CMD ["gunicorn", "--workers=4", "--bind=0.0.0.0:5000", "app:app"]

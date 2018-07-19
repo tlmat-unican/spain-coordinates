@@ -67,7 +67,7 @@ FeatureCollection).
 ### Standalone
 Install python and the required libraries
 
-```
+```bash
 $ sudo apt install python3
 $ pip install --no-cache-dir -r requirements.txt
 $ python3 ./app.py
@@ -76,12 +76,22 @@ $ python3 ./app.py
 By default the webservice is run in port 5000, but this can be modified by
 setting the environment variable `PORT`.
 
+If you prefer using a WSGI server for a production environment, you can use
+[Gunicorn](http://gunicorn.org/), [uWSGI](http://uwsgi-docs.readthedocs.io/) or
+any other you like.
+
+```bash
+$ sudo apt install python3 gunicorn3
+$ pip install --no-cache-dir -r requirements.txt
+$ gunicorn3 --workers=4 --bind=0.0.0.0:5000 app:app
+```
+
 ### Dockerize
 Run the following command to build and run the docker image
 
 ```bash
-$ sudo docker build -t ed50 .
-$ sudo docker run -d -p 5000:5000 ed50
+$ sudo docker build -t spain-coordinates .
+$ sudo docker run -d -p 5000:5000 spain-coordinates
 ```
 
 ## Authors
