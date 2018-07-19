@@ -1,9 +1,9 @@
 import os
-
 from flask import Flask, request, jsonify
 import json
 import jsonschema
 import pyproj
+from functools import partial
 
 app = Flask(__name__)
 
@@ -62,56 +62,55 @@ def transform(zone, dest):
     if dest not in DEST:
         raise InvalidUsage('Not valid destination system.', status_code=404)
 
-    if request.method == 'GET':
-        return do_get(ED50_ZONES[zone], DEST[dest])
-    else:
-        return do_post(ED50_ZONES[zone], DEST[dest])
+    pyproj_transfrom = partial(pyproj.transform, ED50_ZONES[zone], DEST[dest])
 
-def do_get(ED50_zone, dest):
+    if request.method == 'GET':
+        return do_get(pyproj_transfrom)
+    else:
+        return do_post(pyproj_transfrom)
+
+def do_get(pyproj_transfrom):
     ED50_x = request.args.get('x')
     ED50_y = request.args.get('y')
     if ED50_x is None or ED50_x == '' or ED50_y is None or ED50_y == '':
         raise InvalidUsage('Must set both x and y query params.', status_code=400)
     else:
-        lon, lat = pyproj.transform(ED50_zone, dest, ED50_x, ED50_y)
+        lon, lat = pyproj_transfrom(ED50_x, ED50_y)
         return jsonify(lon, lat)
 
-def coordinates_modification(item, ED50_zone, dest_coord_system):
+def coordinates_modification(item, pyproj_transfrom):
   print(item)
   if isinstance(item[0], list) == True:
     for row in item:
-      coordinates_modification(row, ED50_zone, dest_coord_system)
+      coordinates_modification(row, pyproj_transfrom)
   else:
-    new_coord = pyproj.transform(ED50_zone, dest_coord_system, *item)
+    new_coord = pyproj_transfrom(*item)
     item.clear()
     item.extend(new_coord)
 
-def find_and_transform_coordinates(obj, ED50_zone, dest_coord_system):
+def find_and_transform_coordinates(obj, pyproj_transfrom):
     if isinstance(obj, dict):
         for k, item in obj.items():
             if k == "coordinates":
-              coordinates_modification(item, ED50_zone, dest_coord_system)
-            find_and_transform_coordinates(item, ED50_zone, dest_coord_system)
+              coordinates_modification(item, pyproj_transfrom)
+            find_and_transform_coordinates(item, pyproj_transfrom)
     elif any(isinstance(obj, t) for t in (list, tuple)):
         for item in obj:
-            find_and_transform_coordinates(item, ED50_zone, dest_coord_system)
+            find_and_transform_coordinates(item, pyproj_transfrom)
 
-def do_post(ED50_zone, dest):
+def do_post(pyproj_transfrom):
     if request.content_type != 'application/json':
         raise InvalidUsage('Only accepts application/json.', status_code=415)
 
-#    try:
-    json_data = request.get_json()
-    print("00")
+    try:
+      json_data = request.get_json()
 
-    if is_geojson(json_data):
-      print("10")
-      find_and_transform_coordinates(json_data, ED50_zone, dest)
-    else:
-      print("20")
-      coordinates_modification(json_data, ED50_zone, dest)
-#    except:
-#        raise InvalidUsage("Invalid JSON format. Include array of coordinates (i.e. [[x1,y1],...,[xn,yn]].", status_code=400)
+      if is_geojson(json_data):
+        find_and_transform_coordinates(json_data, pyproj_transfrom)
+      else:
+        coordinates_modification(json_data, pyproj_transfrom)
+    except:
+      raise InvalidUsage("Invalid JSON format. Include array of coordinates (i.e. [[x1,y1],...,[xn,yn]].", status_code=400)
 
     return json.dumps(json_data)
 
