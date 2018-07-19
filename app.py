@@ -2,6 +2,7 @@ import os
 
 from flask import Flask, request, jsonify
 import json
+import jsonschema
 import pyproj
 
 app = Flask(__name__)
@@ -18,6 +19,17 @@ DEST = {
     "WGS84": pyproj.Proj(init="epsg:4326"),
     "ETRS89": pyproj.Proj(init="epsg:4258")
 }
+
+with open('json-schema/GeoJSON.json', 'r') as f:
+    schema_data = f.read()
+GEOJSON_SCHEMA = json.loads(schema_data)
+
+def is_geojson(data):
+  try:
+    jsonschema.validate(data, GEOJSON_SCHEMA)
+  except jsonschema.exceptions.ValidationError as error:
+    return False
+  return True
 
 class InvalidUsage(Exception):
     status_code = 400
@@ -64,22 +76,44 @@ def do_get(ED50_zone, dest):
         lon, lat = pyproj.transform(ED50_zone, dest, ED50_x, ED50_y)
         return jsonify(lon, lat)
 
+def coordinates_modification(item, ED50_zone, dest_coord_system):
+  print(item)
+  if isinstance(item[0], list) == True:
+    for row in item:
+      coordinates_modification(row, ED50_zone, dest_coord_system)
+  else:
+    new_coord = pyproj.transform(ED50_zone, dest_coord_system, *item)
+    item.clear()
+    item.extend(new_coord)
+
+def find_and_transform_coordinates(obj, ED50_zone, dest_coord_system):
+    if isinstance(obj, dict):
+        for k, item in obj.items():
+            if k == "coordinates":
+              coordinates_modification(item, ED50_zone, dest_coord_system)
+            find_and_transform_coordinates(item, ED50_zone, dest_coord_system)
+    elif any(isinstance(obj, t) for t in (list, tuple)):
+        for item in obj:
+            find_and_transform_coordinates(item, ED50_zone, dest_coord_system)
+
 def do_post(ED50_zone, dest):
     if request.content_type != 'application/json':
         raise InvalidUsage('Only accepts application/json.', status_code=415)
 
-    try:
-        json_data = request.get_json()
-        output = []
-        for coordinates in json_data:
-            ED50_x = coordinates[0]
-            ED50_y = coordinates[1]
-            lon, lat = pyproj.transform(ED50_zone, dest, ED50_x, ED50_y)
-            output.append([lon, lat])
-    except:
-        raise InvalidUsage("Invalid JSON format. Include array of coordinates (i.e. [[x1,y1],...,[xn,yn]].", status_code=400)
+#    try:
+    json_data = request.get_json()
+    print("00")
 
-    return json.dumps(output)
+    if is_geojson(json_data):
+      print("10")
+      find_and_transform_coordinates(json_data, ED50_zone, dest)
+    else:
+      print("20")
+      coordinates_modification(json_data, ED50_zone, dest)
+#    except:
+#        raise InvalidUsage("Invalid JSON format. Include array of coordinates (i.e. [[x1,y1],...,[xn,yn]].", status_code=400)
+
+    return json.dumps(json_data)
 
 if __name__ == '__main__':
     # Bind to PORT if defined, otherwise default to 5000.
